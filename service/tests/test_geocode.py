@@ -1,9 +1,22 @@
 import json
 import os
 import unittest
+import unittest.mock as mock
 from urllib.parse import urlparse, parse_qs
 
 from geocode import geocode
+
+
+def load_google_sample():
+    fname = os.path.join(os.path.dirname(__file__), "sample.google.json")
+    with open(fname, "rb") as fp:
+        return fp.read()
+
+
+def load_HERE_sample():
+    fname = os.path.join(os.path.dirname(__file__), "sample.here.json")
+    with open(fname, "rb") as fp:
+        return fp.read()
 
 
 class GoogleGeocodeServiceTest(unittest.TestCase):
@@ -21,12 +34,10 @@ class GoogleGeocodeServiceTest(unittest.TestCase):
         self.assertEqual(result_url, self.service.url)
 
     def test_process_response_ok(self):
-        json_file = os.path.join(os.path.dirname(__file__), "sample.google.json")
-        with open(json_file, "rb") as fp:
-            data = fp.read().decode()
-            result = self.service.process_response(data)
-            self.assertEqual(result, {"lat": '37.4224082',
-                                      "lng": '-122.0856086'})
+        data = load_google_sample().decode()
+        result = self.service.process_response(data)
+        self.assertEqual(result, {"lat": '37.4224082',
+                                  "lng": '-122.0856086'})
 
         # Verify unexpected data is dropped
         result = self.service.process_response('{"results": [{"geometry": {"location": {"lat": 37.4224082, "lng": -122.0856086, "other": "extra"}}}] }')
@@ -66,12 +77,10 @@ class HEREGeocodeServiceTest(unittest.TestCase):
         self.assertEqual(result_url, self.service.url)
 
     def test_process_response_ok(self):
-        json_file = os.path.join(os.path.dirname(__file__), "sample.here.json")
-        with open(json_file, "rb") as fp:
-            data = fp.read().decode()
-            result = self.service.process_response(data)
-            self.assertEqual(result, {"lat": '41.88449',
-                                      "lng": '-87.6387699'})
+        data = load_HERE_sample().decode()
+        result = self.service.process_response(data)
+        self.assertEqual(result, {"lat": '41.88449',
+                                  "lng": '-87.6387699'})
 
         # Verify unexpected data is dropped
         result = self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": [{"Latitude": 37.4224082, "Longitude": -122.0856086, "other": "extra"}]}}] }]}}')
@@ -99,3 +108,83 @@ class HEREGeocodeServiceTest(unittest.TestCase):
 
         with self.assertRaises(geocode.DataProcessingError):
             self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": [{"Longitude": -678}]}}]}]} }')
+
+
+class GeocodeLookupTests(unittest.TestCase):
+    def test_init(self):
+        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
+            geocode.GeocodeLookup({}, {})
+
+        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
+            geocode.GeocodeLookup({"services": []}, {})
+
+        # Unknown services
+        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
+            geocode.GeocodeLookup({"services": ["foo", "bar"]}, {})
+
+        # Known but no credentials
+        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
+            geocode.GeocodeLookup({"services": ["HERE", "google"]}, {})
+
+        # Known but wrong credentials
+        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
+            geocode.GeocodeLookup({"services": ["HERE", "google"]},
+                                  {"HERE": {"user": "alice", "password": "bob"},
+                                   "google": {"user": "alice", "password": "bob"}})
+
+        obj = geocode.GeocodeLookup({"services": ["HERE", "google"],
+                                     "HERE": {"url": "https://geocoder.cit.api.here.com/6.2/geocode.json"}},
+                                    {"HERE": {"APP_ID": "foo", "APP_CODE": "bar"},
+                                     "google": {"APP_KEY": "thing1"}})
+        self.assertEqual(obj._services["HERE"].url, "https://geocoder.cit.api.here.com/6.2/geocode.json")
+
+    @mock.patch('urllib.request.urlopen')
+    def test_request_success_google(self, urlopen):
+        request = mock.MagicMock(code=200)
+        request.read.return_value = load_google_sample()
+        urlopen.return_value = request
+
+        obj = geocode.GeocodeLookup({"services": ["google"]},
+                                    {"google": {"APP_KEY": "thing1"}})
+        result = obj.request("1600+Amphitheatre+Parkway+Mountain+View+CA")
+        self.assertEqual(result, {"lat": "37.4224082", "lng": "-122.0856086"})
+
+    @mock.patch('urllib.request.urlopen')
+    def test_request_success_HERE(self, urlopen):
+        request = mock.MagicMock(code=200)
+        request.read.return_value = load_HERE_sample()
+        urlopen.return_value = request
+
+        obj = geocode.GeocodeLookup({"services": ["HERE"]},
+                                    {"HERE": {"APP_ID": "thing1",
+                                                "APP_CODE": "thing2"}})
+        result = obj.request("425+W+Randolph+Chicago")
+        self.assertEqual(result, {"lat": "41.88449", "lng": "-87.6387699"})
+
+    @mock.patch('urllib.request.urlopen')
+    def test_request_success_fallback(self, urlopen):
+        fail_request = mock.MagicMock()
+        fail_request.code = 404
+        success_request = mock.MagicMock()
+        success_request.read.return_value = load_HERE_sample()
+        success_request.code = 200
+        urlopen.side_effect = [fail_request, success_request]
+
+        obj = geocode.GeocodeLookup({"services": ["google", "HERE"]},
+                                    {"google": {"APP_KEY": "foo"},
+                                     "HERE": {"APP_ID": "thing1",
+                                              "APP_CODE": "thing2"}})
+        result = obj.request("425+W+Randolph+Chicago")
+        self.assertEqual(result, {"lat": "41.88449", "lng": "-87.6387699"})
+
+    @mock.patch('urllib.request.urlopen')
+    def test_request_failure(self, urlopen):
+        request = mock.MagicMock(code=403)
+        urlopen.return_value = request
+
+        with self.assertRaises(geocode.GeocodeLookup.Error):
+            obj = geocode.GeocodeLookup({"services": ["HERE"]},
+                                        {"HERE": {"APP_ID": "thing1",
+                                                  "APP_CODE": "thing2"}})
+            result = obj.request("425+W+Randolph+Chicago")
+            self.assertEqual(result, None)

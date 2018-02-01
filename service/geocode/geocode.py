@@ -99,6 +99,9 @@ class GeocodeLookup(object):
     def __init__(self, config, credentials):
         self._services = OrderedDict()
 
+        if "services" not in config:
+            raise GeocodeLookup.ConfigError("no services defined")
+
         for name in config["services"]:
             if name not in self.known_services:
                 raise GeocodeLookup.ConfigError("unknown service: {}".format(name))
