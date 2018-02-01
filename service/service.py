@@ -131,7 +131,7 @@ class GeocodeApp(object):
         """
         try:
             return self._lookup.request(location)
-        except self._lookup.Error as e:
+        except self._lookup.__class__.Error as e:
             raise LookupError(str(e))
 
     def add_routes(self, new_routes):
@@ -147,7 +147,7 @@ class GeocodeApp(object):
         return response
 
     def method_not_allowed(self, response, request):
-        response.as_error("{} : {}".format(request.method, request.path_info),
+        response.as_error("{} : {}".format(request.method, request.path),
                           status=http.HTTPStatus.METHOD_NOT_ALLOWED)
         return response
 
@@ -196,7 +196,7 @@ def handle_location(request):
     was not found then the response will be an empty object. Bad Request
     is returned if the WHERE parameter is not provided. If all services
     return something other than HTTP OK this function returns
-    Service Unavailble.
+    Service Unavailable.
     """
     response = request.response
     qs = request.query_string
@@ -218,9 +218,9 @@ def handle_location(request):
         }
         response.as_json(json.dumps(js))
         return response
-    except GeocodeApp.LookupError as e:
+    except LookupError as e:
         logger.error("Failed during lookup: %s", e)
-        return app.service_unavailble(response, request)
+        return app.service_unavailable(response, request)
 handle_location.supported_methods = ("GET",)
 
 
