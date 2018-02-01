@@ -9,4 +9,4 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import geocode  # noqa
 import geocode.requests as requests  # noqa
 
-import service.service as service  # noqa
+import service.geocode_service as service  # noqa
