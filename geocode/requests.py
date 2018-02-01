@@ -177,7 +177,7 @@ def main(argv):
 
     try:
         result = lookup.request(" ".join(argv[2:]))
-        print(result)
+        print(json.dumps(result))
     except GeocodeLookup.Error as e:
         print("Failed to retrieve data:", e)
 
