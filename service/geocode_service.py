@@ -224,6 +224,21 @@ def handle_location(request):
 handle_location.supported_methods = ("GET", )
 
 
+def merge_config(args, config):
+    # Command line overrides config file
+    if args.log_file:
+        config["log_file"] = args.log_file
+    elif "log_file" not in config:
+        config["log_file"] = "wsgi.log"
+
+    if args.port:
+        config["port"] = args.port
+    elif "port" not in config:
+        config["port"] = 8000
+
+    return config
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
@@ -231,19 +246,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Geocode WSGI server")
     parser.add_argument("--config", default="config.json")
     parser.add_argument("--credentials", default="credentials.json")
-    parser.add_argument("--log-file", default="wsgi.log")
+    parser.add_argument("--log-file", help="Path to the log file. Defaults to wsgi.log")
     parser.add_argument("--port", type=int, help="listening port. Defaults to 8000")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args(argv)
-
-    lh = logging.FileHandler(args.log_file)
-    lh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-
-    logger.addHandler(lh)
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
 
     try:
         config = json.load(open(args.config))
@@ -253,17 +259,22 @@ def main(argv=None):
     except json.decoder.JSONDecodeError as e:
         raise SystemExit("Failed to parse file: {}".format(e))
 
+    config = merge_config(args, config)
+
+    lh = logging.FileHandler(config["log_file"])
+    lh.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+
+    logger.addHandler(lh)
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
     try:
         lookup = GeocodeLookup(config, credentials)
     except GeocodeLookup.ConfigError as e:
         logger.error("Failed to setup lookup object: %s", e)
         raise SystemExit(1)
-
-    # Command line overrides config file
-    if args.port:
-        config["port"] = args.port
-    elif "port" not in config:
-        config["port"] = 8000
 
     # Should be loaded from config as well.
     # Using a routing table allows for more flexibility than introspecting
