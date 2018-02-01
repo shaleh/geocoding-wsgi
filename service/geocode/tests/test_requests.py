@@ -148,7 +148,8 @@ class GeocodeLookupTests(unittest.TestCase):
         obj = requests.GeocodeLookup({"services": ["google"]},
                                     {"google": {"APP_KEY": "thing1"}})
         result = obj.request("1600+Amphitheatre+Parkway+Mountain+View+CA")
-        self.assertEqual(result, {"lat": "37.4224082", "lng": "-122.0856086"})
+        self.assertEqual(result, {"location": {"lat": "37.4224082", "lng": "-122.0856086"},
+                                  "served_by": "google"})
 
     @mock.patch('urllib.request.urlopen')
     def test_request_success_HERE(self, urlopen):
@@ -160,7 +161,8 @@ class GeocodeLookupTests(unittest.TestCase):
                                     {"HERE": {"APP_ID": "thing1",
                                                 "APP_CODE": "thing2"}})
         result = obj.request("425+W+Randolph+Chicago")
-        self.assertEqual(result, {"lat": "41.88449", "lng": "-87.6387699"})
+        self.assertEqual(result, {"location": {"lat": "41.88449", "lng": "-87.6387699"},
+                                  "served_by": "HERE"})
 
     @mock.patch('urllib.request.urlopen')
     def test_request_success_fallback(self, urlopen):
@@ -176,7 +178,8 @@ class GeocodeLookupTests(unittest.TestCase):
                                      "HERE": {"APP_ID": "thing1",
                                               "APP_CODE": "thing2"}})
         result = obj.request("425+W+Randolph+Chicago")
-        self.assertEqual(result, {"lat": "41.88449", "lng": "-87.6387699"})
+        self.assertEqual(result, {"location": {"lat": "41.88449", "lng": "-87.6387699"},
+                                  "served_by": "HERE"})
 
     @mock.patch('urllib.request.urlopen')
     def test_request_success_not_found(self, urlopen):

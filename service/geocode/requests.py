@@ -144,7 +144,7 @@ class GeocodeLookup(object):
                 try:
                     result = service.process_response(response.read().decode())
                     if result:
-                        return result
+                        return {"location": result, "served_by": name}
                     missing = True
                 except UnicodeError:
                     logger.error("Failed to parse input as UTF8")
