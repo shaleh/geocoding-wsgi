@@ -179,6 +179,19 @@ class GeocodeLookupTests(unittest.TestCase):
         self.assertEqual(result, {"lat": "41.88449", "lng": "-87.6387699"})
 
     @mock.patch('urllib.request.urlopen')
+    def test_request_success_not_found(self, urlopen):
+        request = mock.MagicMock()
+        request.read.return_value = b'{"Response": {"View": []} }'
+        request.code = 200
+        urlopen.return_value = request
+
+        obj = requests.GeocodeLookup({"services": ["HERE"]},
+                                     {"HERE": {"APP_ID": "thing1",
+                                              "APP_CODE": "thing2"}})
+        result = obj.request("This%20Old%20House")
+        self.assertEqual(result, {})
+
+    @mock.patch('urllib.request.urlopen')
     def test_request_failure(self, urlopen):
         request = mock.MagicMock(code=403)
         urlopen.return_value = request
