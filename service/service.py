@@ -276,7 +276,7 @@ def main(argv=None):
 
     try:
         httpd = make_server('', config.get("port"), app)
-        print("Serving on port {}...".format(config["port"]))
+        logger.info("Serving on port %d...", config["port"])
 
         httpd.serve_forever()
     except PermissionError as e:
@@ -285,4 +285,8 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logging.info("Interrupted. Exiting.")
+        raise SystemExit(0)
