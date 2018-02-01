@@ -44,10 +44,11 @@ class GoogleGeocodeServiceTest(unittest.TestCase):
         self.assertEqual(result, {"lat": '37.4224082',
                                   "lng": '-122.0856086'})
 
-    def test_process_response_fail(self):
-        with self.assertRaises(requests.DataProcessingError):
-            self.service.process_response('{"results": [] }')
+        # Location is not found. Not an error.
+        self.assertEqual({}, self.service.process_response('{"results": [] }'))
 
+
+    def test_process_response_fail(self):
         with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"results": [{"geometry": {}}] }')
 
@@ -87,12 +88,12 @@ class HEREGeocodeServiceTest(unittest.TestCase):
         self.assertEqual(result, {"lat": '37.4224082',
                                   "lng": '-122.0856086'})
 
+        # Location not found. Not an error.
+        self.assertEqual({}, self.service.process_response('{"Response": {"View": []} }'))
+
     def test_process_response_fail(self):
         with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {} }')
-
-        with self.assertRaises(requests.DataProcessingError):
-            self.service.process_response('{"Response": {"View": []} }')
 
         with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {"View": [{"Result": []}]} }')

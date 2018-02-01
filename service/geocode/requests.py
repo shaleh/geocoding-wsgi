@@ -2,8 +2,12 @@
 
 from collections import OrderedDict
 import json
+import logging
 from urllib.parse import urlencode
 import urllib.request as request
+
+
+logger = logging.getLogger("")
 
 
 class DataProcessingError(Exception):
@@ -36,7 +40,10 @@ class GoogleGeocodeService(object):
         """
         try:
             js = json.loads(data, parse_float=str)
-            location = js['results'][0]['geometry']['location']
+            results = js['results']
+            if not results:
+                return {}
+            location = results[0]['geometry']['location']
             return {"lat": location['lat'], "lng": location['lng']}
         except (json.decoder.JSONDecodeError, IndexError, KeyError, TypeError):
             raise DataProcessingError(data)
@@ -68,9 +75,11 @@ class HEREGeocodeService(object):
         """
         try:
             data = json.loads(data, parse_float=str)
+            view = data['Response']['View']
+            if not view:
+                return {}
             # The choice of NavigationPosition over DisplayPosition is an arbitrary one.
-            location = data['Response']['View'][0]\
-                           ['Result'][0]['Location']['NavigationPosition'][0]
+            location = view[0]['Result'][0]['Location']['NavigationPosition'][0]
             return {'lat': location['Latitude'], 'lng': location['Longitude']}
         except (json.decoder.JSONDecodeError, IndexError, KeyError, TypeError):
             raise DataProcessingError(data)
@@ -126,18 +135,26 @@ class GeocodeLookup(object):
         Returns a dict containing Latitude and Logitude as 'lat' and 'lng' keys.
         Raises GeocodeLookup.Error if no service succeeds.
         """
+        missing = False  # is the location not in the services or where there errors
+
         for name, service in self._services.items():
             outbound = service.prepare(self._credentials[name], location)
             response = request.urlopen(outbound)
             if response.code == 200:
                 try:
-                    return service.process_response(response.read().decode())
+                    result = service.process_response(response.read().decode())
+                    if result:
+                        return result
+                    missing = True
                 except UnicodeError:
-                    print("Failed to parse input as UTF8")
+                    logger.error("Failed to parse input as UTF8")
                 except DataProcessingError as e:
-                    print("Failed to read from {}: {}", name, e)
+                    logger.info("Failed to read from %s: %s", name, e)
             else:
-                print("Request to {} did not succeed. {}".format(name, response.code))
+                logger.info("Request to %s did not succeed. %s".format(name, response.code))
+
+        if missing:
+            return {}
 
         raise GeocodeLookup.Error("All services exhausted!")
 
