@@ -4,8 +4,7 @@ import unittest
 import unittest.mock as mock
 from urllib.parse import urlparse, parse_qs
 
-from geocode import requests
-
+from .context import requests
 
 def load_google_sample():
     fname = os.path.join(os.path.dirname(__file__), "sample.google.json")
