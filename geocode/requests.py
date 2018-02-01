@@ -159,10 +159,10 @@ class GeocodeLookup(object):
         raise GeocodeLookup.Error("All services exhausted!")
 
 
-def main():
+def main(argv):
     try:
-        config = json.load(open('config.json'))
-        credentials = json.load(open('credentials.json'))
+        config = json.load(open(argv[0]))
+        credentials = json.load(open(argv[1]))
     except OSError as e:
         print("Failed to read file:", e)
     except json.decoder.JSONDecodeError as e:
@@ -181,4 +181,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    main(sys.argv[1:])
