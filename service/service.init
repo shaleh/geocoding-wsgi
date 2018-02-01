@@ -1,4 +1,4 @@
 #!/bin/sh
 
 export PYTHONPATH=..
-python3 ./service.py "$@"
+python3 ./geocode_service.py "$@"
