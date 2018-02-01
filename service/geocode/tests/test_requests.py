@@ -4,7 +4,7 @@ import unittest
 import unittest.mock as mock
 from urllib.parse import urlparse, parse_qs
 
-from geocode import geocode
+from geocode import requests
 
 
 def load_google_sample():
@@ -21,7 +21,7 @@ def load_HERE_sample():
 
 class GoogleGeocodeServiceTest(unittest.TestCase):
     def setUp(self):
-        self.service = geocode.GoogleGeocodeService()
+        self.service = requests.GoogleGeocodeService()
 
     def test_prepare(self):
         url = self.service.prepare({"APP_KEY": "foo"},
@@ -45,25 +45,25 @@ class GoogleGeocodeServiceTest(unittest.TestCase):
                                   "lng": '-122.0856086'})
 
     def test_process_response_fail(self):
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"results": [] }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"results": [{"geometry": {}}] }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"results": [{"geometry": {"location": {}}}] }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"results": [{"geometry": {"location": {"lat": 37.4224082}}}] }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"results": [{"geometry": {"location": {"lng": -122.0856086}}}] }')
 
 
 class HEREGeocodeServiceTest(unittest.TestCase):
     def setUp(self):
-        self.service = geocode.HEREGeocodeService()
+        self.service = requests.HEREGeocodeService()
 
     def test_prepare(self):
         url = self.service.prepare({"APP_ID": "foo", "APP_CODE": "bar"},
@@ -88,51 +88,51 @@ class HEREGeocodeServiceTest(unittest.TestCase):
                                   "lng": '-122.0856086'})
 
     def test_process_response_fail(self):
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {} }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {"View": []} }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {"View": [{"Result": []}]} }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {}}]}]} }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": []}}]}]} }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": [{"Latitude": 123}]}}]}]} }')
 
-        with self.assertRaises(geocode.DataProcessingError):
+        with self.assertRaises(requests.DataProcessingError):
             self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": [{"Longitude": -678}]}}]}]} }')
 
 
 class GeocodeLookupTests(unittest.TestCase):
     def test_init(self):
-        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
-            geocode.GeocodeLookup({}, {})
+        with self.assertRaises(requests.GeocodeLookup.ConfigError):
+            requests.GeocodeLookup({}, {})
 
-        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
-            geocode.GeocodeLookup({"services": []}, {})
+        with self.assertRaises(requests.GeocodeLookup.ConfigError):
+            requests.GeocodeLookup({"services": []}, {})
 
         # Unknown services
-        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
-            geocode.GeocodeLookup({"services": ["foo", "bar"]}, {})
+        with self.assertRaises(requests.GeocodeLookup.ConfigError):
+            requests.GeocodeLookup({"services": ["foo", "bar"]}, {})
 
         # Known but no credentials
-        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
-            geocode.GeocodeLookup({"services": ["HERE", "google"]}, {})
+        with self.assertRaises(requests.GeocodeLookup.ConfigError):
+            requests.GeocodeLookup({"services": ["HERE", "google"]}, {})
 
         # Known but wrong credentials
-        with self.assertRaises(geocode.GeocodeLookup.ConfigError):
-            geocode.GeocodeLookup({"services": ["HERE", "google"]},
+        with self.assertRaises(requests.GeocodeLookup.ConfigError):
+            requests.GeocodeLookup({"services": ["HERE", "google"]},
                                   {"HERE": {"user": "alice", "password": "bob"},
                                    "google": {"user": "alice", "password": "bob"}})
 
-        obj = geocode.GeocodeLookup({"services": ["HERE", "google"],
+        obj = requests.GeocodeLookup({"services": ["HERE", "google"],
                                      "HERE": {"url": "https://geocoder.cit.api.here.com/6.2/geocode.json"}},
                                     {"HERE": {"APP_ID": "foo", "APP_CODE": "bar"},
                                      "google": {"APP_KEY": "thing1"}})
@@ -144,7 +144,7 @@ class GeocodeLookupTests(unittest.TestCase):
         request.read.return_value = load_google_sample()
         urlopen.return_value = request
 
-        obj = geocode.GeocodeLookup({"services": ["google"]},
+        obj = requests.GeocodeLookup({"services": ["google"]},
                                     {"google": {"APP_KEY": "thing1"}})
         result = obj.request("1600+Amphitheatre+Parkway+Mountain+View+CA")
         self.assertEqual(result, {"lat": "37.4224082", "lng": "-122.0856086"})
@@ -155,7 +155,7 @@ class GeocodeLookupTests(unittest.TestCase):
         request.read.return_value = load_HERE_sample()
         urlopen.return_value = request
 
-        obj = geocode.GeocodeLookup({"services": ["HERE"]},
+        obj = requests.GeocodeLookup({"services": ["HERE"]},
                                     {"HERE": {"APP_ID": "thing1",
                                                 "APP_CODE": "thing2"}})
         result = obj.request("425+W+Randolph+Chicago")
@@ -170,7 +170,7 @@ class GeocodeLookupTests(unittest.TestCase):
         success_request.code = 200
         urlopen.side_effect = [fail_request, success_request]
 
-        obj = geocode.GeocodeLookup({"services": ["google", "HERE"]},
+        obj = requests.GeocodeLookup({"services": ["google", "HERE"]},
                                     {"google": {"APP_KEY": "foo"},
                                      "HERE": {"APP_ID": "thing1",
                                               "APP_CODE": "thing2"}})
@@ -182,8 +182,8 @@ class GeocodeLookupTests(unittest.TestCase):
         request = mock.MagicMock(code=403)
         urlopen.return_value = request
 
-        with self.assertRaises(geocode.GeocodeLookup.Error):
-            obj = geocode.GeocodeLookup({"services": ["HERE"]},
+        with self.assertRaises(requests.GeocodeLookup.Error):
+            obj = requests.GeocodeLookup({"services": ["HERE"]},
                                         {"HERE": {"APP_ID": "thing1",
                                                   "APP_CODE": "thing2"}})
             result = obj.request("425+W+Randolph+Chicago")
