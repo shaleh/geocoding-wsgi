@@ -6,6 +6,7 @@ from urllib.parse import urlparse, parse_qs
 
 from .context import requests
 
+
 def load_google_sample():
     fname = os.path.join(os.path.dirname(__file__), "sample.google.json")
     with open(fname, "rb") as fp:
@@ -39,13 +40,25 @@ class GoogleGeocodeServiceTest(unittest.TestCase):
                                   "lng": '-122.0856086'})
 
         # Verify unexpected data is dropped
-        result = self.service.process_response('{"results": [{"geometry": {"location": {"lat": 37.4224082, "lng": -122.0856086, "other": "extra"}}}] }')
-        self.assertEqual(result, {"lat": '37.4224082',
-                                  "lng": '-122.0856086'})
+        js = '''{
+    "results": [
+        {
+            "geometry": {
+                "location": {
+                    "lat": "37.4224082",
+                    "lng": "-122.0856086",
+                    "other": "extra"
+                }
+            }
+        }
+    ]
+}'''
+        result = self.service.process_response(js)
+        self.assertEqual(result, {"lat": "37.4224082",
+                                  "lng": "-122.0856086"})
 
         # Location is not found. Not an error.
         self.assertEqual({}, self.service.process_response('{"results": [] }'))
-
 
     def test_process_response_fail(self):
         with self.assertRaises(requests.DataProcessingError):
@@ -55,10 +68,12 @@ class GoogleGeocodeServiceTest(unittest.TestCase):
             self.service.process_response('{"results": [{"geometry": {"location": {}}}] }')
 
         with self.assertRaises(requests.DataProcessingError):
-            self.service.process_response('{"results": [{"geometry": {"location": {"lat": 37.4224082}}}] }')
+            js = '{"results": [{"geometry": {"location": {"lat": 37.4224082}}}] }'
+            self.service.process_response(js)
 
         with self.assertRaises(requests.DataProcessingError):
-            self.service.process_response('{"results": [{"geometry": {"location": {"lng": -122.0856086}}}] }')
+            js = '{"results": [{"geometry": {"location": {"lng": -122.0856086}}}] }'
+            self.service.process_response(js)
 
 
 class HEREGeocodeServiceTest(unittest.TestCase):
@@ -83,9 +98,30 @@ class HEREGeocodeServiceTest(unittest.TestCase):
                                   "lng": '-87.6387699'})
 
         # Verify unexpected data is dropped
-        result = self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": [{"Latitude": 37.4224082, "Longitude": -122.0856086, "other": "extra"}]}}] }]}}')
-        self.assertEqual(result, {"lat": '37.4224082',
-                                  "lng": '-122.0856086'})
+        js = '''{
+        "Response": {
+            "View": [
+                {
+                    "Result": [
+                        {
+                            "Location": {
+                                "NavigationPosition": [
+                                    {
+                                        "Latitude": "37.4224082",
+                                        "Longitude": "-122.0856086",
+                                        "other": "extra"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+}'''
+        result = self.service.process_response(js)
+        self.assertEqual(result, {"lat": "37.4224082",
+                                  "lng": "-122.0856086"})
 
         # Location not found. Not an error.
         self.assertEqual({}, self.service.process_response('{"Response": {"View": []} }'))
@@ -101,13 +137,66 @@ class HEREGeocodeServiceTest(unittest.TestCase):
             self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {}}]}]} }')
 
         with self.assertRaises(requests.DataProcessingError):
-            self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": []}}]}]} }')
+            js = '''{
+    "Response": {
+        "View": [
+            {
+                "Result": [
+                    {
+                        "Location": {
+                            "NavigationPosition": []
+                        }
+                    }
+                ]
+            }
+        ]
+     }
+}'''
+            self.service.process_response(js)
 
         with self.assertRaises(requests.DataProcessingError):
-            self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": [{"Latitude": 123}]}}]}]} }')
+            js = '''{
+    "Response": {
+        "View": [
+            {
+                "Result": [
+                    {
+                        "Location": {
+                            "NavigationPosition": [
+                                {
+                                    "Latitude": "123"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}'''
+            self.service.process_response(js)
 
         with self.assertRaises(requests.DataProcessingError):
-            self.service.process_response('{"Response": {"View": [{"Result": [{"Location": {"NavigationPosition": [{"Longitude": -678}]}}]}]} }')
+            js = '''{
+    "Response": {
+        "View": [
+            {
+                "Result": [
+                    {
+                        "Location": {
+                            "NavigationPosition": [
+                                {
+                                    "Longitude": "-678"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}'''
+            self.service.process_response(js)
 
 
 class GeocodeLookupTests(unittest.TestCase):
@@ -129,13 +218,14 @@ class GeocodeLookupTests(unittest.TestCase):
         # Known but wrong credentials
         with self.assertRaises(requests.GeocodeLookup.ConfigError):
             requests.GeocodeLookup({"services": ["HERE", "google"]},
-                                  {"HERE": {"user": "alice", "password": "bob"},
-                                   "google": {"user": "alice", "password": "bob"}})
+                                   {"HERE": {"user": "alice", "password": "bob"},
+                                    "google": {"user": "alice", "password": "bob"}})
 
         obj = requests.GeocodeLookup({"services": ["HERE", "google"],
-                                     "HERE": {"url": "https://geocoder.cit.api.here.com/6.2/geocode.json"}},
-                                    {"HERE": {"APP_ID": "foo", "APP_CODE": "bar"},
-                                     "google": {"APP_KEY": "thing1"}})
+                                     "HERE": {"url":
+                                              "https://geocoder.cit.api.here.com/6.2/geocode.json"}},
+                                     {"HERE": {"APP_ID": "foo", "APP_CODE": "bar"},
+                                      "google": {"APP_KEY": "thing1"}})
         self.assertEqual(obj._services["HERE"].url, "https://geocoder.cit.api.here.com/6.2/geocode.json")
 
     @mock.patch('urllib.request.urlopen')
@@ -145,7 +235,7 @@ class GeocodeLookupTests(unittest.TestCase):
         urlopen.return_value = request
 
         obj = requests.GeocodeLookup({"services": ["google"]},
-                                    {"google": {"APP_KEY": "thing1"}})
+                                     {"google": {"APP_KEY": "thing1"}})
         result = obj.request("1600+Amphitheatre+Parkway+Mountain+View+CA")
         self.assertEqual(result, {"location": {"lat": "37.4224082", "lng": "-122.0856086"},
                                   "served_by": "google"})
@@ -157,8 +247,8 @@ class GeocodeLookupTests(unittest.TestCase):
         urlopen.return_value = request
 
         obj = requests.GeocodeLookup({"services": ["HERE"]},
-                                    {"HERE": {"APP_ID": "thing1",
-                                                "APP_CODE": "thing2"}})
+                                     {"HERE": {"APP_ID": "thing1",
+                                               "APP_CODE": "thing2"}})
         result = obj.request("425+W+Randolph+Chicago")
         self.assertEqual(result, {"location": {"lat": "41.88449", "lng": "-87.6387699"},
                                   "served_by": "HERE"})
@@ -173,9 +263,9 @@ class GeocodeLookupTests(unittest.TestCase):
         urlopen.side_effect = [fail_request, success_request]
 
         obj = requests.GeocodeLookup({"services": ["google", "HERE"]},
-                                    {"google": {"APP_KEY": "foo"},
-                                     "HERE": {"APP_ID": "thing1",
-                                              "APP_CODE": "thing2"}})
+                                     {"google": {"APP_KEY": "foo"},
+                                      "HERE": {"APP_ID": "thing1",
+                                               "APP_CODE": "thing2"}})
         result = obj.request("425+W+Randolph+Chicago")
         self.assertEqual(result, {"location": {"lat": "41.88449", "lng": "-87.6387699"},
                                   "served_by": "HERE"})
@@ -189,7 +279,7 @@ class GeocodeLookupTests(unittest.TestCase):
 
         obj = requests.GeocodeLookup({"services": ["HERE"]},
                                      {"HERE": {"APP_ID": "thing1",
-                                              "APP_CODE": "thing2"}})
+                                               "APP_CODE": "thing2"}})
         result = obj.request("This%20Old%20House")
         self.assertEqual(result, {})
 
@@ -200,7 +290,7 @@ class GeocodeLookupTests(unittest.TestCase):
 
         with self.assertRaises(requests.GeocodeLookup.Error):
             obj = requests.GeocodeLookup({"services": ["HERE"]},
-                                        {"HERE": {"APP_ID": "thing1",
-                                                  "APP_CODE": "thing2"}})
+                                         {"HERE": {"APP_ID": "thing1",
+                                                   "APP_CODE": "thing2"}})
             result = obj.request("425+W+Randolph+Chicago")
             self.assertEqual(result, None)
