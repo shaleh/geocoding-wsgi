@@ -221,7 +221,7 @@ def handle_location(request):
     except LookupError as e:
         logger.error("Failed during lookup: %s", e)
         return app.service_unavailable(response, request)
-handle_location.supported_methods = ("GET",)
+handle_location.supported_methods = ("GET", )
 
 
 def main(argv=None):
