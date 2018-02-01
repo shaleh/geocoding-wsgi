@@ -135,6 +135,8 @@ class GeocodeLookup(object):
         Returns a dict containing Latitude and Logitude as 'lat' and 'lng' keys.
         Raises GeocodeLookup.Error if no service succeeds.
         """
+        location = location.replace(" ", "+")
+
         missing = False  # is the location not in the services or where there errors
 
         for name, service in self._services.items():
@@ -174,7 +176,7 @@ def main(argv):
         print("Failed to setup lookup object:", e)
 
     try:
-        result = lookup.request("425+W+Randolph+Chicago")
+        result = lookup.request(" ".join(argv[2:]))
         print(result)
     except GeocodeLookup.Error as e:
         print("Failed to retrieve data:", e)
